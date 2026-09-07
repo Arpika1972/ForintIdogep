@@ -158,16 +158,25 @@
     pointer-events: none;
   }
 
-  .swap {
+  .swap-btn {
+    width: 100%;
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 10px;
-    color: var(--ink-soft);
-    font-size: 13px;
-    margin: 16px 0 4px;
+    gap: 8px;
+    background: transparent;
+    border: 1px dashed var(--line);
+    border-radius: var(--radius);
+    color: var(--brass-deep);
+    font-family: 'Courier New', monospace;
+    font-size: 12px;
+    letter-spacing: 0.06em;
+    padding: 9px 6px;
+    margin: 4px 0 18px;
+    cursor: pointer;
   }
-  .swap .arrow { color: var(--brass); font-size: 16px; }
+  .swap-btn:hover { background: rgba(156,122,46,0.08); }
+  .swap-btn span { font-size: 15px; }
 
   .result {
     margin-top: 22px;
@@ -224,27 +233,31 @@
   <header>
     <p class="mark">KSH FOGYASZTÓIÁR-INDEX · 1950–2026</p>
     <h1>Forint időgép</h1>
-    <p>Add meg egy régi összeg évét és értékét — megmutatom, mennyit ér ma. Vagy fordítva: egy mai összegből visszaszámolom, mennyit ért egy adott évben.</p>
+    <p>Válassz két évet, és add meg az összeget — bármelyik irányba átszámolom. Alapból az egyik a mai év, de mindkettő módosítható.</p>
   </header>
 
-  <div class="mode-toggle">
-    <button id="btnForward" class="active">Régi → Mai érték</button>
-    <button id="btnBackward">Mai → Régi érték</button>
-  </div>
-
   <div class="card">
-    <div class="field select-wrap">
-      <label id="yearLabel">ÉV</label>
-      <select id="yearSelect"></select>
-    </div>
-
     <div class="field">
-      <label id="amountLabel">ÖSSZEG (FT)</label>
+      <label id="amountLabel">ÖSSZEG</label>
       <input id="amountInput" type="number" inputmode="decimal" placeholder="pl. 1000" min="0">
     </div>
 
+    <div class="field select-wrap">
+      <label>EBBŐL AZ ÉVBŐL</label>
+      <select id="yearFromSelect"></select>
+    </div>
+
+    <button id="swapBtn" class="swap-btn" type="button" aria-label="Évek felcserélése">
+      <span>⇅</span> Évek felcserélése
+    </button>
+
+    <div class="field select-wrap">
+      <label>ERRE AZ ÉVRE</label>
+      <select id="yearToSelect"></select>
+    </div>
+
     <div class="result">
-      <div class="label" id="resultLabel">MAI ÉRTÉK</div>
+      <div class="label" id="resultLabel">ÉRTÉKE</div>
       <div class="value" id="resultValue">—</div>
       <div class="sub" id="resultSub"></div>
       <div class="range" id="resultRange"></div>
@@ -252,8 +265,7 @@
   </div>
 
   <footer>
-    Forrás: a feltöltött KSH-szorzó tábla (1950–2026, bázisév 2026 = 1,000).<br>
-    Telepítéshez: böngésző menü → „Kezdőképernyőhöz adás”.
+    Forrás: a feltöltött KSH-szorzó tábla (1950–2026, bázisév 2026 = 1,000).
   </footer>
 
 </div>
@@ -302,28 +314,32 @@ const DATA = {
   2026:{c:1,min:1,max:1}
 };
 
-const yearSelect   = document.getElementById('yearSelect');
-const amountInput  = document.getElementById('amountInput');
-const btnForward   = document.getElementById('btnForward');
-const btnBackward  = document.getElementById('btnBackward');
-const yearLabel    = document.getElementById('yearLabel');
-const amountLabel  = document.getElementById('amountLabel');
-const resultLabel  = document.getElementById('resultLabel');
-const resultValue  = document.getElementById('resultValue');
-const resultSub    = document.getElementById('resultSub');
-const resultRange  = document.getElementById('resultRange');
+const amountInput   = document.getElementById('amountInput');
+const yearFromSelect = document.getElementById('yearFromSelect');
+const yearToSelect   = document.getElementById('yearToSelect');
+const swapBtn        = document.getElementById('swapBtn');
+const resultLabel    = document.getElementById('resultLabel');
+const resultValue    = document.getElementById('resultValue');
+const resultSub      = document.getElementById('resultSub');
+const resultRange    = document.getElementById('resultRange');
 
-let mode = 'forward'; // forward: régi -> mai | backward: mai -> régi
-
-// évek feltöltése, csökkenő sorrendben
+// évek feltöltése, csökkenő sorrendben, mindkét választóba
 const years = Object.keys(DATA).map(Number).sort((a,b) => b - a);
-years.forEach(y => {
-  const opt = document.createElement('option');
-  opt.value = y;
-  opt.textContent = y;
-  yearSelect.appendChild(opt);
+[yearFromSelect, yearToSelect].forEach(sel => {
+  years.forEach(y => {
+    const opt = document.createElement('option');
+    opt.value = y;
+    opt.textContent = y;
+    sel.appendChild(opt);
+  });
 });
-yearSelect.value = 1990;
+
+// alapértelmezett: az egyik a mai (aktuális) év, a másik egy korábbi év
+const maxYear = years[0];
+const minYear = years[years.length - 1];
+const currentYear = Math.min(Math.max(new Date().getFullYear(), minYear), maxYear);
+yearFromSelect.value = currentYear;
+yearToSelect.value = (currentYear - 36) >= minYear ? currentYear - 36 : minYear;
 
 function fmt(n) {
   if (!isFinite(n)) return '—';
@@ -331,56 +347,39 @@ function fmt(n) {
 }
 
 function render() {
-  const year = Number(yearSelect.value);
+  const yFrom = Number(yearFromSelect.value);
+  const yTo   = Number(yearToSelect.value);
   const amount = parseFloat(amountInput.value);
-  const row = DATA[year];
+  const rowFrom = DATA[yFrom];
+  const rowTo   = DATA[yTo];
 
-  if (mode === 'forward') {
-    yearLabel.textContent = 'MELYIK ÉVBŐL SZÁRMAZIK AZ ÖSSZEG';
-    amountLabel.textContent = `ÖSSZEG ${year}-BEN (FT)`;
-    resultLabel.textContent = '2026-OS ÉRTÉK';
-    if (!isNaN(amount) && amount >= 0) {
-      const val = amount * row.c;
-      resultValue.textContent = fmt(val) + ' Ft';
-      resultSub.textContent = `${fmt(amount)} Ft (${year}) × ${row.c.toLocaleString('hu-HU')} szorzó`;
-      resultRange.textContent = `Sáv: ${fmt(amount*row.min)} – ${fmt(amount*row.max)} Ft`;
-    } else {
-      resultValue.textContent = '—';
-      resultSub.textContent = '';
-      resultRange.textContent = '';
-    }
+  resultLabel.textContent = yTo + '-OS ÉRTÉK';
+
+  if (!isNaN(amount) && amount >= 0 && rowFrom && rowTo) {
+    const ratio = rowFrom.c / rowTo.c;
+    const val = amount * ratio;
+    resultValue.textContent = fmt(val) + ' Ft';
+    resultSub.textContent = `${fmt(amount)} Ft (${yFrom}) → ${yTo}`;
+
+    const low  = amount * (rowFrom.min / rowTo.max);
+    const high = amount * (rowFrom.max / rowTo.min);
+    resultRange.textContent = `Sáv: ${fmt(low)} – ${fmt(high)} Ft`;
   } else {
-    yearLabel.textContent = 'MELYIK ÉVRE SZÁMOLJAK VISSZA';
-    amountLabel.textContent = 'MAI ÖSSZEG (2026, FT)';
-    resultLabel.textContent = year + '-OS ÉRTÉK';
-    if (!isNaN(amount) && amount >= 0) {
-      const val = amount / row.c;
-      resultValue.textContent = fmt(val) + ' Ft';
-      resultSub.textContent = `${fmt(amount)} Ft (2026) ÷ ${row.c.toLocaleString('hu-HU')} szorzó`;
-      resultRange.textContent = `Sáv: ${fmt(amount/row.max)} – ${fmt(amount/row.min)} Ft`;
-    } else {
-      resultValue.textContent = '—';
-      resultSub.textContent = '';
-      resultRange.textContent = '';
-    }
+    resultValue.textContent = '—';
+    resultSub.textContent = '';
+    resultRange.textContent = '';
   }
 }
 
-btnForward.addEventListener('click', () => {
-  mode = 'forward';
-  btnForward.classList.add('active');
-  btnBackward.classList.remove('active');
+swapBtn.addEventListener('click', () => {
+  const tmp = yearFromSelect.value;
+  yearFromSelect.value = yearToSelect.value;
+  yearToSelect.value = tmp;
   render();
 });
 
-btnBackward.addEventListener('click', () => {
-  mode = 'backward';
-  btnBackward.classList.add('active');
-  btnForward.classList.remove('active');
-  render();
-});
-
-yearSelect.addEventListener('change', render);
+yearFromSelect.addEventListener('change', render);
+yearToSelect.addEventListener('change', render);
 amountInput.addEventListener('input', render);
 
 render();
