@@ -178,6 +178,56 @@
   .swap-btn:hover { background: rgba(156,122,46,0.08); }
   .swap-btn span { font-size: 15px; }
 
+  .chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 2px 0 18px;
+  }
+
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: transparent;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 7px 12px;
+    font-family: 'Courier New', monospace;
+    font-size: 12px;
+    color: var(--ink-soft);
+    cursor: pointer;
+  }
+  .chip:hover { border-color: var(--brass); color: var(--ink); }
+  .chip.save-chip {
+    border-style: dashed;
+    color: var(--brass-deep);
+  }
+  .chip .chip-x {
+    color: var(--rust);
+    font-weight: bold;
+    margin-left: 2px;
+  }
+
+  .chart-wrap {
+    margin-top: 24px;
+    padding-top: 20px;
+    border-top: 1px dashed var(--line);
+  }
+  .chart-wrap .label {
+    font-family: 'Courier New', monospace;
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    color: var(--ink-soft);
+    margin-bottom: 10px;
+  }
+  .chart-wrap svg { width: 100%; height: auto; display: block; }
+  .chart-line { fill: none; stroke: var(--rust); stroke-width: 2; }
+  .chart-axis { stroke: var(--line); stroke-width: 1; }
+  .chart-dot { fill: var(--brass-deep); }
+  .chart-dot.to { fill: var(--rust); }
+  .chart-label { font-family: 'Courier New', monospace; font-size: 8.5px; fill: var(--ink-soft); }
+
   .result {
     margin-top: 22px;
     padding-top: 20px;
@@ -256,11 +306,18 @@
       <select id="yearToSelect"></select>
     </div>
 
+    <div class="chips" id="chipsRow"></div>
+
     <div class="result">
       <div class="label" id="resultLabel">ÉRTÉKE</div>
       <div class="value" id="resultValue">—</div>
       <div class="sub" id="resultSub"></div>
       <div class="range" id="resultRange"></div>
+    </div>
+
+    <div class="chart-wrap">
+      <div class="label">ÉRTÉK ALAKULÁSA 1950–2026 KÖZÖTT</div>
+      <svg id="chartSvg" viewBox="0 0 360 130" xmlns="http://www.w3.org/2000/svg"></svg>
     </div>
   </div>
 
@@ -322,6 +379,8 @@ const resultLabel    = document.getElementById('resultLabel');
 const resultValue    = document.getElementById('resultValue');
 const resultSub      = document.getElementById('resultSub');
 const resultRange    = document.getElementById('resultRange');
+const chipsRow       = document.getElementById('chipsRow');
+const chartSvg       = document.getElementById('chartSvg');
 
 // évek feltöltése, csökkenő sorrendben, mindkét választóba
 const years = Object.keys(DATA).map(Number).sort((a,b) => b - a);
@@ -344,6 +403,132 @@ yearToSelect.value = (currentYear - 36) >= minYear ? currentYear - 36 : minYear;
 function fmt(n) {
   if (!isFinite(n)) return '—';
   return n.toLocaleString('hu-HU', { maximumFractionDigits: 0 });
+}
+
+// --- Kedvencek (előre beállítottak + saját mentettek) ---
+const PRESET_FAVORITES = [1950, 1970, 1990, 2000, 2010].filter(y => y < currentYear);
+const FAV_KEY = 'forintido_kedvencek';
+
+function loadSavedFavorites() {
+  try {
+    const raw = localStorage.getItem(FAV_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch (e) { return []; }
+}
+
+function saveFavorites(list) {
+  try { localStorage.setItem(FAV_KEY, JSON.stringify(list)); } catch (e) {}
+}
+
+function pairKey(from, to) { return from + '-' + to; }
+
+function renderChips() {
+  chipsRow.innerHTML = '';
+  const saved = loadSavedFavorites();
+  const currentFrom = Number(yearFromSelect.value);
+  const currentTo = Number(yearToSelect.value);
+
+  // előre beállított gyorsgombok
+  PRESET_FAVORITES.forEach(y => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'chip';
+    btn.textContent = y + ' → ' + currentYear;
+    btn.addEventListener('click', () => {
+      yearFromSelect.value = y;
+      yearToSelect.value = currentYear;
+      render();
+    });
+    chipsRow.appendChild(btn);
+  });
+
+  // saját mentett kedvencek, törölhetők
+  saved.forEach(pair => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'chip';
+    btn.innerHTML = pair.from + ' → ' + pair.to + ' <span class="chip-x">×</span>';
+    btn.addEventListener('click', (e) => {
+      if (e.target.classList.contains('chip-x')) {
+        const next = saved.filter(p => pairKey(p.from,p.to) !== pairKey(pair.from,pair.to));
+        saveFavorites(next);
+        renderChips();
+        return;
+      }
+      yearFromSelect.value = pair.from;
+      yearToSelect.value = pair.to;
+      render();
+    });
+    chipsRow.appendChild(btn);
+  });
+
+  // "mentés kedvencként" gomb, csak ha ez a pár még nincs elmentve
+  const alreadySaved = saved.some(p => pairKey(p.from,p.to) === pairKey(currentFrom,currentTo));
+  const isPresetPair = PRESET_FAVORITES.includes(currentFrom) && currentTo === currentYear;
+  if (!alreadySaved && !isPresetPair) {
+    const saveBtn = document.createElement('button');
+    saveBtn.type = 'button';
+    saveBtn.className = 'chip save-chip';
+    saveBtn.textContent = '+ Mentés kedvencként';
+    saveBtn.addEventListener('click', () => {
+      const list = loadSavedFavorites();
+      list.push({ from: currentFrom, to: currentTo });
+      saveFavorites(list);
+      renderChips();
+    });
+    chipsRow.appendChild(saveBtn);
+  }
+}
+
+// --- Grafikon: az összeg értékének alakulása minden éven át ---
+function renderChart() {
+  const yFrom = Number(yearFromSelect.value);
+  const yTo   = Number(yearToSelect.value);
+  const amount = parseFloat(amountInput.value);
+  const rowFrom = DATA[yFrom];
+
+  if (isNaN(amount) || amount <= 0 || !rowFrom) {
+    chartSvg.innerHTML = '';
+    return;
+  }
+
+  const ascYears = [...years].sort((a,b) => a - b);
+  const vals = ascYears.map(y => amount * rowFrom.c / DATA[y].c);
+  const logs = vals.map(v => Math.log10(Math.max(v, 0.01)));
+  const minL = Math.min(...logs);
+  const maxL = Math.max(...logs);
+  const spanL = (maxL - minL) || 1;
+
+  const W = 360, H = 130, padL = 6, padR = 6, padT = 10, padB = 20;
+  const plotW = W - padL - padR;
+  const plotH = H - padT - padB;
+
+  const xPos = i => padL + i * plotW / (ascYears.length - 1);
+  const yPos = l => padT + plotH * (1 - (l - minL) / spanL);
+
+  let points = '';
+  ascYears.forEach((y, i) => {
+    points += xPos(i) + ',' + yPos(logs[i]) + ' ';
+  });
+
+  const idxFrom = ascYears.indexOf(yFrom);
+  const idxTo = ascYears.indexOf(yTo);
+
+  let svg = '';
+  svg += `<line class="chart-axis" x1="${padL}" y1="${H-padB}" x2="${W-padR}" y2="${H-padB}"/>`;
+  svg += `<polyline class="chart-line" points="${points.trim()}"/>`;
+
+  if (idxFrom >= 0) {
+    svg += `<circle class="chart-dot from" cx="${xPos(idxFrom)}" cy="${yPos(logs[idxFrom])}" r="4"/>`;
+  }
+  if (idxTo >= 0) {
+    svg += `<circle class="chart-dot to" cx="${xPos(idxTo)}" cy="${yPos(logs[idxTo])}" r="4"/>`;
+  }
+
+  svg += `<text class="chart-label" x="${padL}" y="${H-4}">${ascYears[0]}</text>`;
+  svg += `<text class="chart-label" x="${W-padR-24}" y="${H-4}">${ascYears[ascYears.length-1]}</text>`;
+
+  chartSvg.innerHTML = svg;
 }
 
 function render() {
@@ -369,6 +554,9 @@ function render() {
     resultSub.textContent = '';
     resultRange.textContent = '';
   }
+
+  renderChips();
+  renderChart();
 }
 
 swapBtn.addEventListener('click', () => {
