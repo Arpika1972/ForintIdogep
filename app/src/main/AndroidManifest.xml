@@ -4,7 +4,7 @@
     <application
         android:allowBackup="true"
         android:label="Forint időgép"
-        android:icon="@drawable/forint"
+        android:icon="@drawable/ic_launcher"
         android:theme="@android:style/Theme.Material.Light.NoActionBar">
 
         <activity
