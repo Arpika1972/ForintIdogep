@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Szorzó — Forint időgép</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#20302A">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<style>
+  @font-face {
+    font-family: 'system-serif';
+    src: local('Iowan Old Style'), local('Palatino Linotype'), local('Georgia');
+  }
+
+  :root {
+    --paper: #F2ECDB;
+    --paper-card: #FBF7EC;
+    --ink: #202B24;
+    --ink-soft: #4C594E;
+    --brass: #9C7A2E;
+    --brass-deep: #7C5F20;
+    --rust: #8A3B2A;
+    --line: #C9BF9F;
+    --radius: 2px;
+  }
+
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: Georgia, 'Iowan Old Style', 'Palatino Linotype', serif;
+    min-height: 100vh;
+  }
+
+  body {
+    background-image:
+      radial-gradient(circle at 15% 8%, rgba(156,122,46,0.06), transparent 40%),
+      radial-gradient(circle at 85% 92%, rgba(138,59,42,0.05), transparent 45%);
+    display: flex;
+    justify-content: center;
+    padding: 0 0 48px;
+  }
+
+  .app {
+    width: 100%;
+    max-width: 440px;
+    padding: env(safe-area-inset-top,0) 20px 0;
+  }
+
+  header {
+    padding: 34px 4px 22px;
+    border-bottom: 1px solid var(--line);
+    margin-bottom: 26px;
+  }
+
+  header .mark {
+    font-family: 'Courier New', monospace;
+    font-size: 12px;
+    letter-spacing: 0.14em;
+    color: var(--brass-deep);
+    margin: 0 0 6px;
+  }
+
+  header h1 {
+    font-size: 28px;
+    font-weight: 400;
+    margin: 0;
+    letter-spacing: 0.01em;
+    line-height: 1.15;
+  }
+
+  header p {
+    margin: 10px 0 0;
+    color: var(--ink-soft);
+    font-size: 14.5px;
+    line-height: 1.5;
+    max-width: 34ch;
+  }
+
+  .mode-toggle {
+    display: flex;
+    border: 1px solid var(--ink);
+    border-radius: var(--radius);
+    overflow: hidden;
+    margin-bottom: 22px;
+  }
+
+  .mode-toggle button {
+    flex: 1;
+    background: transparent;
+    border: none;
+    font-family: inherit;
+    font-size: 13.5px;
+    padding: 12px 6px;
+    color: var(--ink-soft);
+    cursor: pointer;
+    letter-spacing: 0.01em;
+  }
+
+  .mode-toggle button + button { border-left: 1px solid var(--ink); }
+
+  .mode-toggle button.active {
+    background: var(--ink);
+    color: var(--paper-card);
+  }
+
+  .card {
+    background: var(--paper-card);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 22px 20px 24px;
+    box-shadow: 0 1px 0 rgba(0,0,0,0.03);
+  }
+
+  .field { margin-bottom: 18px; }
+  .field:last-child { margin-bottom: 0; }
+
+  .field label {
+    display: block;
+    font-family: 'Courier New', monospace;
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    color: var(--brass-deep);
+    margin-bottom: 7px;
+  }
+
+  .field select, .field input {
+    width: 100%;
+    font-family: Georgia, serif;
+    font-size: 22px;
+    padding: 10px 2px;
+    border: none;
+    border-bottom: 1.5px solid var(--ink);
+    background: transparent;
+    color: var(--ink);
+    appearance: none;
+    -webkit-appearance: none;
+  }
+
+  .field select:focus, .field input:focus {
+    outline: none;
+    border-bottom-color: var(--brass);
+  }
+
+  .field.select-wrap { position: relative; }
+  .field.select-wrap::after {
+    content: "▾";
+    position: absolute;
+    right: 4px;
+    bottom: 14px;
+    color: var(--brass-deep);
+    font-size: 13px;
+    pointer-events: none;
+  }
+
+  .swap {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    color: var(--ink-soft);
+    font-size: 13px;
+    margin: 16px 0 4px;
+  }
+  .swap .arrow { color: var(--brass); font-size: 16px; }
+
+  .result {
+    margin-top: 22px;
+    padding-top: 20px;
+    border-top: 1px dashed var(--line);
+  }
+
+  .result .label {
+    font-family: 'Courier New', monospace;
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    color: var(--ink-soft);
+    margin-bottom: 6px;
+  }
+
+  .result .value {
+    font-size: 40px;
+    line-height: 1.1;
+    color: var(--rust);
+    font-variant-numeric: tabular-nums;
+    word-break: break-word;
+  }
+
+  .result .sub {
+    margin-top: 10px;
+    font-size: 13px;
+    color: var(--ink-soft);
+    line-height: 1.5;
+  }
+
+  .range {
+    margin-top: 10px;
+    font-family: 'Courier New', monospace;
+    font-size: 12px;
+    color: var(--ink-soft);
+  }
+
+  footer {
+    margin-top: 30px;
+    text-align: center;
+    font-size: 11.5px;
+    color: var(--ink-soft);
+    opacity: 0.75;
+    line-height: 1.6;
+    padding: 0 10px;
+  }
+
+  footer a { color: var(--brass-deep); }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <header>
+    <p class="mark">KSH FOGYASZTÓIÁR-INDEX · 1950–2026</p>
+    <h1>Forint időgép</h1>
+    <p>Add meg egy régi összeg évét és értékét — megmutatom, mennyit ér ma. Vagy fordítva: egy mai összegből visszaszámolom, mennyit ért egy adott évben.</p>
+  </header>
+
+  <div class="mode-toggle">
+    <button id="btnForward" class="active">Régi → Mai érték</button>
+    <button id="btnBackward">Mai → Régi érték</button>
+  </div>
+
+  <div class="card">
+    <div class="field select-wrap">
+      <label id="yearLabel">ÉV</label>
+      <select id="yearSelect"></select>
+    </div>
+
+    <div class="field">
+      <label id="amountLabel">ÖSSZEG (FT)</label>
+      <input id="amountInput" type="number" inputmode="decimal" placeholder="pl. 1000" min="0">
+    </div>
+
+    <div class="result">
+      <div class="label" id="resultLabel">MAI ÉRTÉK</div>
+      <div class="value" id="resultValue">—</div>
+      <div class="sub" id="resultSub"></div>
+      <div class="range" id="resultRange"></div>
+    </div>
+  </div>
+
+  <footer>
+    Forrás: a feltöltött KSH-szorzó tábla (1950–2026, bázisév 2026 = 1,000).<br>
+    Telepítéshez: böngésző menü → „Kezdőképernyőhöz adás”.
+  </footer>
+
+</div>
+
+<script>
+// Központi szorzó a Munka2 munkalapból (bázisév 2026 = 1)
+const DATA = {
+  1950:{c:147.826,min:144.501,max:166.624}, 1951:{c:126.916,min:125.289,max:139.431},
+  1952:{c:91.968,min:91.697,max:97.526}, 1953:{c:92.338,min:92.066,max:96.976},
+  1954:{c:97.115,min:96.829,max:101.004}, 1955:{c:97.943,min:97.654,max:100.866},
+  1956:{c:98.891,min:98.599,max:100.833}, 1957:{c:96.605,min:96.321,max:98.503},
+  1958:{c:96.302,min:96.018,max:98.194}, 1959:{c:97.527,min:97.24,max:99.443},
+  1960:{c:96.911,min:96.625,max:98.815}, 1961:{c:96.046,min:95.763,max:97.933},
+  1962:{c:95.573,min:95.291,max:97.45}, 1963:{c:96.142,min:95.858,max:98.03},
+  1964:{c:95.762,min:95.479,max:97.643}, 1965:{c:95.104,min:94.823,max:96.972},
+  1966:{c:93.997,min:93.72,max:95.844}, 1967:{c:93.634,min:93.358,max:95.473},
+  1968:{c:93.906,min:93.629,max:95.751}, 1969:{c:92.649,min:92.376,max:94.469},
+  1970:{c:91.425,min:91.156,max:93.221}, 1971:{c:89.649,min:89.385,max:91.41},
+  1972:{c:87.15,min:86.893,max:88.862}, 1973:{c:84.344,min:84.095,max:86.001},
+  1974:{c:82.83,min:82.586,max:84.457}, 1975:{c:79.828,min:79.592,max:81.396},
+  1976:{c:76.008,min:75.784,max:77.502}, 1977:{c:73.14,min:72.925,max:74.577},
+  1978:{c:69.921,min:69.715,max:71.295}, 1979:{c:64.222,min:64.033,max:65.484},
+  1980:{c:58.877,min:58.703,max:60.033}, 1981:{c:56.278,min:56.112,max:57.384},
+  1982:{c:52.64,min:52.485,max:53.674}, 1983:{c:49.069,min:48.924,max:50.033},
+  1984:{c:45.307,min:45.173,max:46.197}, 1985:{c:42.338,min:42.213,max:43.169},
+  1986:{c:40.195,min:40.077,max:40.985}, 1987:{c:37.003,min:36.894,max:37.73},
+  1988:{c:32.037,min:31.942,max:32.666}, 1989:{c:27.384,min:27.303,max:27.922},
+  1990:{c:21.248,min:21.185,max:21.665}, 1991:{c:15.737,min:15.691,max:16.047},
+  1992:{c:12.797,min:12.759,max:13.048}, 1993:{c:10.446,min:10.416,max:10.652},
+  1994:{c:8.792,min:8.767,max:8.965}, 1995:{c:6.861,min:6.841,max:6.996},
+  1996:{c:5.551,min:5.534,max:5.66}, 1997:{c:4.692,min:4.678,max:4.784},
+  1998:{c:4.105,min:4.093,max:4.186}, 1999:{c:3.732,min:3.721,max:3.805},
+  2000:{c:3.399,min:3.389,max:3.466}, 2001:{c:3.112,min:3.103,max:3.174},
+  2002:{c:2.956,min:2.947,max:3.014}, 2003:{c:2.823,min:2.815,max:2.879},
+  2004:{c:2.643,min:2.636,max:2.695}, 2005:{c:2.551,min:2.544,max:2.602},
+  2006:{c:2.456,min:2.448,max:2.504}, 2007:{c:2.274,min:2.267,max:2.319},
+  2008:{c:2.143,min:2.137,max:2.185}, 2009:{c:2.057,min:2.051,max:2.097},
+  2010:{c:1.961,min:1.955,max:1.999}, 2011:{c:1.887,min:1.881,max:1.924},
+  2012:{c:1.785,min:1.78,max:1.821}, 2013:{c:1.755,min:1.75,max:1.79},
+  2014:{c:1.759,min:1.754,max:1.793}, 2015:{c:1.76,min:1.755,max:1.795},
+  2016:{c:1.753,min:1.748,max:1.788}, 2017:{c:1.713,min:1.708,max:1.747},
+  2018:{c:1.666,min:1.661,max:1.698}, 2019:{c:1.612,min:1.607,max:1.643},
+  2020:{c:1.56,min:1.555,max:1.59}, 2021:{c:1.484,min:1.48,max:1.513},
+  2022:{c:1.296,min:1.292,max:1.322}, 2023:{c:1.102,min:1.099,max:1.124},
+  2024:{c:1.063,min:1.06,max:1.084}, 2025:{c:1.018,min:1.015,max:1.038},
+  2026:{c:1,min:1,max:1}
+};
+
+const yearSelect   = document.getElementById('yearSelect');
+const amountInput  = document.getElementById('amountInput');
+const btnForward   = document.getElementById('btnForward');
+const btnBackward  = document.getElementById('btnBackward');
+const yearLabel    = document.getElementById('yearLabel');
+const amountLabel  = document.getElementById('amountLabel');
+const resultLabel  = document.getElementById('resultLabel');
+const resultValue  = document.getElementById('resultValue');
+const resultSub    = document.getElementById('resultSub');
+const resultRange  = document.getElementById('resultRange');
+
+let mode = 'forward'; // forward: régi -> mai | backward: mai -> régi
+
+// évek feltöltése, csökkenő sorrendben
+const years = Object.keys(DATA).map(Number).sort((a,b) => b - a);
+years.forEach(y => {
+  const opt = document.createElement('option');
+  opt.value = y;
+  opt.textContent = y;
+  yearSelect.appendChild(opt);
+});
+yearSelect.value = 1990;
+
+function fmt(n) {
+  if (!isFinite(n)) return '—';
+  return n.toLocaleString('hu-HU', { maximumFractionDigits: 0 });
+}
+
+function render() {
+  const year = Number(yearSelect.value);
+  const amount = parseFloat(amountInput.value);
+  const row = DATA[year];
+
+  if (mode === 'forward') {
+    yearLabel.textContent = 'MELYIK ÉVBŐL SZÁRMAZIK AZ ÖSSZEG';
+    amountLabel.textContent = `ÖSSZEG ${year}-BEN (FT)`;
+    resultLabel.textContent = '2026-OS ÉRTÉK';
+    if (!isNaN(amount) && amount >= 0) {
+      const val = amount * row.c;
+      resultValue.textContent = fmt(val) + ' Ft';
+      resultSub.textContent = `${fmt(amount)} Ft (${year}) × ${row.c.toLocaleString('hu-HU')} szorzó`;
+      resultRange.textContent = `Sáv: ${fmt(amount*row.min)} – ${fmt(amount*row.max)} Ft`;
+    } else {
+      resultValue.textContent = '—';
+      resultSub.textContent = '';
+      resultRange.textContent = '';
+    }
+  } else {
+    yearLabel.textContent = 'MELYIK ÉVRE SZÁMOLJAK VISSZA';
+    amountLabel.textContent = 'MAI ÖSSZEG (2026, FT)';
+    resultLabel.textContent = year + '-OS ÉRTÉK';
+    if (!isNaN(amount) && amount >= 0) {
+      const val = amount / row.c;
+      resultValue.textContent = fmt(val) + ' Ft';
+      resultSub.textContent = `${fmt(amount)} Ft (2026) ÷ ${row.c.toLocaleString('hu-HU')} szorzó`;
+      resultRange.textContent = `Sáv: ${fmt(amount/row.max)} – ${fmt(amount/row.min)} Ft`;
+    } else {
+      resultValue.textContent = '—';
+      resultSub.textContent = '';
+      resultRange.textContent = '';
+    }
+  }
+}
+
+btnForward.addEventListener('click', () => {
+  mode = 'forward';
+  btnForward.classList.add('active');
+  btnBackward.classList.remove('active');
+  render();
+});
+
+btnBackward.addEventListener('click', () => {
+  mode = 'backward';
+  btnBackward.classList.add('active');
+  btnForward.classList.remove('active');
+  render();
+});
+
+yearSelect.addEventListener('change', render);
+amountInput.addEventListener('input', render);
+
+render();
+</script>
+</body>
+</html>
